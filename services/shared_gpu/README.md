@@ -100,3 +100,5 @@ active deployment; this fork preserves its code with generic defaults/templates.
 
 The follow-up [performance audit](PERFORMANCE.md) records additional experiments
 and the startup/responsiveness improvements shipped after the initial tag.
+The [Torch 2.14 / ROCm 7.2 trial](TORCH214.md) records a subsequent isolated
+upgrade and compiler comparison; the live Torch environment remains unchanged.

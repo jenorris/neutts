@@ -75,6 +75,9 @@ were confined to separate processes and did not modify production settings.
    matched torchaudio/torchtune/torchao dependencies before evaluating. Avoid
    upgrading the shared agent environment as an experiment. Torch changes affect
    the codec and watermark stack; llama.cpp has its own compiled HIP backend.
+   Follow-up: the [Torch 2.14 trial](TORCH214.md) completed on 2026-09-30.
+   Repeated eager tests found effectively unchanged complete synthesis time;
+   this is no longer an untested performance opportunity for this service.
 2. **Bounded audio response cache for repeated phrases.** A fixed seed allows
    identical requests to bypass generation entirely. Bind entries to model,
    reference voice/transcript, all synthesis/postprocessing settings and format;
