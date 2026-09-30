@@ -1,3 +1,7 @@
+# Maintained shared GPU service fork
+
+This fork preserves the shared GPU runtime in [services/shared_gpu](services/shared_gpu/README.md). Upstream NeuTTS package code and license are retained.
+
 # NeuTTS
 
 HuggingFace 🤗:
