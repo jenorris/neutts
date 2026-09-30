@@ -19,6 +19,8 @@ FastAPI service and a lightweight proxy for a second voice endpoint:
 - Full synthesis warmup for each configured voice before readiness.
 - One worker serves both voices, with no duplicate model in the proxy.
 - Rolling overlap-add preserves upstream output while retaining only the tail.
+- Phoneme models skip unused GGUF array metadata parsing; BPE emotion metadata remains intact.
+- CPU response processing and transcoding run outside the HTTP event loop.
 
 Backbone BF16 and decoder FP32 are unchanged. Seed, generation settings,
 watermarking, splitting, and audio postprocessing are preserved. This runtime
@@ -83,7 +85,7 @@ cd services/shared_gpu
 python -m unittest -v test_runtime
 ```
 
-Eight tests cover exact rolling audio equivalence (including short final windows),
+Eleven tests cover exact rolling audio equivalence (including short final windows),
 cache lifecycle, overlapping streams, disconnect/task cancellation, backpressure,
 and failure cleanup. Ownership tests use two executor threads deliberately.
 
@@ -95,3 +97,6 @@ prompt/streaming code, NeuCodec, or GPU libraries. Update checkpoint compatibili
 checks if decoder architecture changes; do not hide missing active weights with
 `strict=False`. The host's original workspace service directory remains the
 active deployment; this fork preserves its code with generic defaults/templates.
+
+The follow-up [performance audit](PERFORMANCE.md) records additional experiments
+and the startup/responsiveness improvements shipped after the initial tag.

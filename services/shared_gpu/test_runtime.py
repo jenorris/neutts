@@ -17,6 +17,25 @@ from neutts import NeuTTS
 from neutts.neutts import _linear_overlap_add
 
 
+class MetadataTests(unittest.TestCase):
+    def test_phoneme_model_skips_unused_array_reader(self):
+        tts = SharedNeuTTS.__new__(SharedNeuTTS)
+        tts.input_format = 'phonemes'
+        with patch.object(NeuTTS, '_read_gguf_array_meta') as reader:
+            self.assertEqual(tts._read_gguf_array_meta('air.gguf'), {})
+            reader.assert_not_called()
+        with self.assertRaisesRegex(ValueError, 'only supported by BPE'):
+            tts._check_emotion('happy')
+
+    def test_bpe_model_preserves_emotion_metadata(self):
+        tts = SharedNeuTTS.__new__(SharedNeuTTS)
+        tts.input_format = 'BPE'
+        metadata = {'neuphonic.supported_emotions': ['happy', 'sad']}
+        with patch.object(NeuTTS, '_read_gguf_array_meta', return_value=metadata) as reader:
+            self.assertIs(tts._read_gguf_array_meta('emotional.gguf'), metadata)
+            reader.assert_called_once_with('emotional.gguf')
+
+
 class OverlapTests(unittest.TestCase):
     def test_matches_full_history_and_bounds_memory(self):
         rng = np.random.default_rng(17)
@@ -178,6 +197,37 @@ class OwnershipTests(unittest.IsolatedAsyncioTestCase):
             async for _ in stream_owned(self.lock, self.executor, produce):
                 pass
         self.assertFalse(self.lock.locked())
+
+
+class ResponseFormattingTests(unittest.IsolatedAsyncioTestCase):
+    async def test_slow_transcoding_keeps_http_loop_responsive(self):
+        import server
+        from unittest.mock import AsyncMock
+
+        entered, release = threading.Event(), threading.Event()
+        def transcode(wav, response_format):
+            entered.set()
+            self.assertTrue(release.wait(1), 'HTTP loop blocked by transcoding')
+            return wav, 'audio/wav'
+
+        audio = np.ones(2400, dtype=np.float32) * 0.1
+        state = {'voices': {'primary': {'prerendered': {}}}, 'executor': None, 'ready': True}
+        with patch.dict(server._state, state, clear=True), \
+             patch.object(server, 'run_owned', new=AsyncMock(return_value=audio)), \
+             patch.object(server, '_transcode', side_effect=transcode):
+            task = asyncio.create_task(server._speech({'input': 'Hello.', 'response_format': 'wav'}))
+            try:
+                for _ in range(100):
+                    if entered.is_set():
+                        break
+                    await asyncio.sleep(0.005)
+                self.assertTrue(entered.is_set())
+                self.assertFalse(task.done())
+                self.assertTrue((await server.health())['ok'])
+            finally:
+                release.set()
+                response = await task
+            self.assertEqual(response.body, server._pcm16_to_wav(server._float_to_pcm16(audio)))
 
 
 if __name__ == '__main__':

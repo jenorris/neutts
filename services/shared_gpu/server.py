@@ -367,6 +367,12 @@ def _sync_infer(text, voice, cancelled):
     return np.concatenate(parts) if parts else np.zeros(0, dtype=np.float32)
 
 
+def _format_generated_audio(wav, speed, response_format):
+    wav = _postprocess(wav, speed)
+    wav_bytes = _pcm16_to_wav(_float_to_pcm16(wav))
+    return _transcode(wav_bytes, response_format)
+
+
 async def _speech(body: dict, voice_id="primary"):
     voice = _voice(voice_id)
     text = _strip_minimax_markup(str(body.get("input") or ""))
@@ -386,7 +392,7 @@ async def _speech(body: dict, voice_id="primary"):
             with wave.open(io.BytesIO(wav_bytes)) as w:
                 return Response(content=w.readframes(w.getnframes()), media_type="audio/pcm")
         try:
-            audio_bytes, mime = _transcode(wav_bytes, response_format)
+            audio_bytes, mime = await asyncio.to_thread(_transcode, wav_bytes, response_format)
         except RuntimeError as exc:
             raise HTTPException(status_code=500, detail=str(exc)) from exc
         return Response(content=audio_bytes, media_type=mime)
@@ -413,10 +419,11 @@ async def _speech(body: dict, voice_id="primary"):
 
     wav = await run_owned(_lock, _state["executor"],
                           lambda cancelled: _sync_infer(text, voice, cancelled))
-    wav = _postprocess(wav, speed)
-    wav_bytes = _pcm16_to_wav(_float_to_pcm16(wav))
     try:
-        audio_bytes, mime = _transcode(wav_bytes, response_format)
+        # CPU stretching and ffmpeg must not stall health checks, streaming
+        # consumers, or the bounded GPU producer's queue on the HTTP event loop.
+        audio_bytes, mime = await asyncio.to_thread(
+            _format_generated_audio, wav, speed, response_format)
     except RuntimeError as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
     return Response(content=audio_bytes, media_type=mime)

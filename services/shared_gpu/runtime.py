@@ -91,6 +91,13 @@ class SharedNeuTTS(NeuTTS):
         self._reference_tokens = {}
         super().__init__(*args, **kwargs)
 
+    def _read_gguf_array_meta(self, model_path):
+        # Only BPE models accept emotions. Parsing every tokenizer array again
+        # costs seconds for Air's large vocabulary and provides no used metadata.
+        if self.input_format == 'phonemes':
+            return {}
+        return super()._read_gguf_array_meta(model_path)
+
     def _load_codec(self, repo, device):
         if repo != 'neuphonic/neucodec':
             raise ValueError('Shared runtime currently supports the original NeuCodec only')
