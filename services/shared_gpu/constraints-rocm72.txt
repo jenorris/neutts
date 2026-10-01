@@ -1,0 +1,7 @@
+# GPU stack validated on RX 7900 XTX, CPython 3.11.
+# Install the custom TorchAudio wheel before applying this constraint file.
+torch==2.14.0+rocm7.2
+torchvision==0.29.0+rocm7.2
+triton-rocm==3.8.0
+torchaudio==2.11.0a0+245ccb4
+torchao==0.18.0

@@ -5,7 +5,7 @@ Tested the highest available Python 3.11 ROCm 7.2 Torch wheel,
 7900 XTX. Model and reference inputs were unchanged: BF16 NeuTTS-Air backbone,
 FP32 decoder, highest FP32 matmul precision, original watermarking and seed.
 No quantization or mixed precision was introduced. The live environment was not
-upgraded.
+upgraded during the trial; the subsequent system migration is recorded below.
 
 ## Results
 
@@ -81,13 +81,42 @@ space for another full installation. No production service pointed at it.
 The source-build recipe and small torchaudio wheel were saved with local test
 artifacts; large temporary binaries/downloads can be removed after measurement.
 
-## Decision
+## Trial decision
 
 Keep the current live stack. Torch 2.14/ROCm 7.2 runs and reduces decoder memory,
 but the repeated measurements do not justify the expected large inference gain
 or the additional deployment/dependency work for this service alone. It remains
 a valid candidate for a broader GPU software refresh or another workload with
 a larger PyTorch share.
+
+## Subsequent deployment — 2026-09-30
+
+The authorized system refresh deployed Torch 2.14.0+rocm7.2 to the shared
+Hermes/NeuTTS environment and ComfyUI, using TorchVision 0.29.0+rocm7.2 and
+Triton ROCm 3.8.0. The host userspace SDK is ROCm 7.2.4, HIP 7.2.53211,
+matching Torch's bundled HIP version. Existing kernel drivers were retained.
+
+TorchAudio was built from upstream commit
+`245ccb4118970340500e40f202fba8383636463e` against Torch 2.14. Its CPU
+extension uses ordinary ATen dispatch for GPU tensors. The official pure
+Python TorchAO 0.18.0 wheel replaced the unused CUDA-extension wheel; no
+model quantization was added. See `constraints-rocm72.txt` for package pins.
+
+All eleven runtime tests pass. Both endpoints synthesized speech that Whisper
+transcribed correctly. Fresh GPU reference encoding with a separate empty
+cache succeeded for both voices, and the resulting cached integer codes were
+exactly identical to the original production cache. The production cache was
+preserved. Decoder compilation remains disabled and decoder FP32/backbone BF16
+remain unchanged. These deployment checks establish compatibility, not a new
+performance gain beyond the trial measurements above.
+
+The deployment stores GPU packages once under
+`~/ComfyUI/.gpu-stack/torch214-rocm72`, with package links from the consumer
+venvs. ComfyUI's existing Docker mount covers this store. Its derived Ubuntu
+24.04 image supplies `libatomic1` and `libnuma1`, required by the newer runtime.
+Old consumer packages were archived before replacement. Restore consumers by
+removing the linked package entries and extracting their respective archives;
+do not remove the shared store while another consumer uses it.
 
 Official wheel inventories: [Torch ROCm 7.2](https://download.pytorch.org/whl/rocm7.2/torch/),
 [torchaudio ROCm 7.2](https://download.pytorch.org/whl/rocm7.2/torchaudio/).

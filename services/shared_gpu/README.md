@@ -30,9 +30,12 @@ and a serial queue.
 
 ## Setup
 
-Use Python 3.11 with the appropriate GPU stack already installed. Tested with
-PyTorch/torchaudio 2.10.0+rocm7.0 and llama-cpp-python 0.3.35 built with HIP and
-flash attention on gfx1100. Preserve these GPU builds when installing:
+Use Python 3.11 with the appropriate GPU stack already installed. Currently
+deployed with Torch 2.14.0+rocm7.2, source-built TorchAudio, TorchVision 0.29.0,
+and Triton ROCm 3.8.0. See [the migration notes](TORCH214.md) and
+`constraints-rocm72.txt`. The earlier Torch/torchaudio 2.10.0+rocm7.0 stack was
+also validated. llama-cpp-python 0.3.35 uses HIP and flash attention on gfx1100.
+Preserve these GPU builds when installing:
 
 ```sh
 python -m pip install --no-deps .
